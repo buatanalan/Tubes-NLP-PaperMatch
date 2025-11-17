@@ -1,7 +1,7 @@
 /.venv/
-.predictions/
-.hf_env/
-.models/
-__pycache__/
-.hf_finetune_results/
-.hf_finetune_results_lora/
+predictions
+hf_env
+models
+__pycache__
+hf_finetune_results
+hf_finetune_results_lora
