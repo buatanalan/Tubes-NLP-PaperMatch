@@ -1,0 +1,22 @@
+{
+    "astro-ph": 0,
+    "cond-mat": 1,
+    "cs": 2,
+    "econ": 3,
+    "eess": 4,
+    "gr-qc": 5,
+    "hep-ex": 6,
+    "hep-lat": 7,
+    "hep-ph": 8,
+    "hep-th": 9,
+    "math": 10,
+    "math-ph": 11,
+    "nlin": 12,
+    "nucl-ex": 13,
+    "nucl-th": 14,
+    "physics": 15,
+    "q-bio": 16,
+    "q-fin": 17,
+    "quant-ph": 18,
+    "stat": 19
+}
