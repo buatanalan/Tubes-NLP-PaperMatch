@@ -5,6 +5,8 @@ models
 __pycache__
 hf_finetune_results
 hf_finetune_results_lora
+hf_finetune_results_lora_baru
+tmp_trainer
 train_raw_dataset
 test_raw_dataset
 topic_classification
