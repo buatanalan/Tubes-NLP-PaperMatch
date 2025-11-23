@@ -16,9 +16,7 @@ from transformers import (
 )
 import torch.nn.functional as F
 
-# ==========================================
-# KONFIGURASI HALAMAN STREAMLIT
-# ==========================================
+# Config
 st.set_page_config(
     page_title="Paper Topic & Related Work Gen",
     page_icon="📚",
@@ -35,10 +33,8 @@ CONFIG = {
     "LABEL_MAPPING_FILE": "label_mapping.json"
 }
 
-# ==========================================
-# FUNGSI UTILITAS (CACHED)
-# ==========================================
 
+# Setup ChromaDB
 @st.cache_resource
 def setup_chroma_db():
     chroma_path = os.path.join(CONFIG["CHROMA_DIR"], "chroma_db")
@@ -55,6 +51,7 @@ def setup_chroma_db():
             )
     return chroma_path
 
+# Load Label Mapping
 @st.cache_data
 def get_label_mapping():
     if os.path.exists(CONFIG["LABEL_MAPPING_FILE"]):
@@ -71,10 +68,7 @@ def get_label_mapping():
     except Exception as e:
         return {}
 
-# ==========================================
-# KELAS PIPELINE (DIMODIFIKASI UNTUK STREAMLIT)
-# ==========================================
-
+# Pipeline Klasifikasi, Retrieval, dan Generasi
 class ResearchPipeline:
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -90,10 +84,10 @@ class ResearchPipeline:
             ignore_mismatched_sizes=True
         )
         self.classifier = PeftModel.from_pretrained(base_model, CONFIG["CLASSIFIER_MODEL"])
-        self.classifier.to("cpu") # Hemat VRAM untuk generator
+        self.classifier.to("cpu")
         self.classifier.eval()
 
-        # Load Chroma
+        # Load ChromaDB
         chroma_path = setup_chroma_db()
         embedding_fn = HuggingFaceEmbeddings(
             model_name=CONFIG["EMBEDDING_MODEL"],
@@ -105,17 +99,16 @@ class ResearchPipeline:
             collection_name="paper_abstracts"
         )
 
-        # Load Generator (Hanya jika ada GPU)
         self.generator = None
         self.gen_tokenizer = None
         
+        # Load Related Work Generator (jika CUDA tersedia)
         if torch.cuda.is_available():
-            torch.cuda.empty_cache() # Bersihkan cache GPU sebelum load model besar
+            torch.cuda.empty_cache()
             try:
                 if not os.path.exists(CONFIG["GENERATOR_DIR"]):
                       snapshot_download(repo_id=CONFIG["GENERATOR_MODEL"], local_dir=CONFIG["GENERATOR_DIR"])
 
-                # Konfigurasi persis seperti script manual yang berhasil
                 bnb_config = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_use_double_quant=True,
@@ -127,14 +120,13 @@ class ResearchPipeline:
                 if self.gen_tokenizer.pad_token_id is None:
                     self.gen_tokenizer.pad_token_id = self.gen_tokenizer.eos_token_id
                 
-                # Suppress warning tentang quantization config yang duplikat
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=UserWarning, message=".*quantization_config.*")
                     
                     self.generator = AutoModelForCausalLM.from_pretrained(
                         CONFIG["GENERATOR_DIR"],
                         quantization_config=bnb_config,
-                        device_map="cuda:0", # Paksa ke GPU 0 seperti script manual
+                        device_map="cuda:0",
                         trust_remote_code=True,
                         local_files_only=True
                     )
@@ -144,7 +136,7 @@ class ResearchPipeline:
     def predict_topic(self, text):
         inputs = self.cls_tokenizer(
             text, return_tensors="pt", truncation=True, max_length=256, padding="max_length"
-        ).to("cpu") # Classifier run on CPU
+        ).to("cpu")
         
         with torch.no_grad():
             outputs = self.classifier(**inputs)
@@ -196,27 +188,22 @@ class ResearchPipeline:
 
         with torch.no_grad():
             outputs = self.generator.generate(
-                **inputs,                         # Unpack input_ids & attention_mask
-                **generation_kwargs,              # Unpack config di atas
+                **inputs,                         
+                **generation_kwargs,              
                 use_cache=True,
                 eos_token_id=self.gen_tokenizer.eos_token_id,
-                pad_token_id=self.gen_tokenizer.pad_token_id, # Gunakan pad token yang benar
+                pad_token_id=self.gen_tokenizer.pad_token_id,
             )
         
         generated_text = self.gen_tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
         return generated_text, references_text
 
-# ==========================================
 # INISIALISASI MODEL (CACHED)
-# ==========================================
 @st.cache_resource(show_spinner="Memuat model AI yang berat, mohon tunggu sebentar...")
 def load_pipeline():
     return ResearchPipeline()
 
-# ==========================================
-# UI UTAMA
-# ==========================================
-
+# UI
 st.title("📚 AI Research Assistant")
 st.markdown("Masukkan abstrak paper Anda untuk **klasifikasi topik**, **pencarian referensi**, dan **pembuatan draft Related Works**.")
 
@@ -254,25 +241,23 @@ if st.button("🚀 Analisis & Generate", type="primary"):
             result_text, _ = pipeline.generate_related_work(user_abstract, docs)
             
             status.update(label="Selesai!", state="complete", expanded=False)
-
-        # === TAMPILKAN HASIL ===
         
         # Kolom Kiri: Metadata & Referensi
         with col1:
             st.subheader("📊 Hasil Analisis")
             st.info(f"**Prediksi Topik:** {topic}")
-            st.caption(f"Topic ID: {topic_id}")
             
             st.divider()
             st.subheader("📖 Referensi Terkait")
             for i, doc in enumerate(docs):
                 title = doc.metadata.get("title", "No Title")
                 # Jika ada ID di metadata, tampilkan. Jika tidak, gunakan index.
-                paper_id = doc.metadata.get("id", f"Ref-{i+1}") 
+                paper_id = doc.metadata.get("paper_id", f"Ref-{i+1}") 
+                raw_abstract = doc.metadata.get("raw_abstract", "")
                 
                 with st.expander(f"📄 {title}"):
-                    st.caption(f"**ID:** {paper_id}")
-                    st.markdown(f"_{doc.page_content[:300]}..._")
+                    st.caption(f"**arXiv Paper ID:** {paper_id}")
+                    st.markdown(f"{raw_abstract}")
         
         # Kolom Kanan: Hasil Generasi
         with col2:
@@ -287,16 +272,3 @@ if st.button("🚀 Analisis & Generate", type="primary"):
                     file_name="related_works.md",
                     mime="text/markdown"
                 )
-
-# # Footer
-# st.markdown("---")
-# st.caption("Ditenagai oleh DistilBERT LoRA, ChromaDB, dan Llama-3.")
-# ```
-
-# ### Cara Menjalankan
-
-# 1.  Simpan file di atas sebagai `app.py`.
-# 2.  Buka terminal/command prompt.
-# 3.  Jalankan perintah:
-#     ```bash
-#     streamlit run app.py
