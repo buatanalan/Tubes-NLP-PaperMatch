@@ -11,3 +11,6 @@ train_raw_dataset
 test_raw_dataset
 topic_classification
 chroma_db
+outputs
+processed_multixscience_data
+summarization
