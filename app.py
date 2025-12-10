@@ -199,7 +199,7 @@ class ResearchPipeline:
         return generated_text, references_text
 
 # INISIALISASI MODEL (CACHED)
-@st.cache_resource(show_spinner="Memuat model AI yang berat, mohon tunggu sebentar...")
+@st.cache_resource(show_spinner="Sedang memuat model...")
 def load_pipeline():
     return ResearchPipeline()
 
@@ -233,11 +233,11 @@ if st.button("🚀 Analisis & Generate", type="primary"):
             topic, topic_id = pipeline.predict_topic(user_abstract)
             
             # 2. Retrieval
-            status.write("📚 Mencari Referensi Relevan (RAG)...")
+            status.write("📚 Mencari Referensi Relevan...")
             docs = pipeline.retrieve_documents(user_abstract, topic_id, k=3)
             
             # 3. Generation
-            status.write("📝 Menulis Related Work Section...")
+            status.write("📝 Menulis Related Work...")
             result_text, _ = pipeline.generate_related_work(user_abstract, docs)
             
             status.update(label="Selesai!", state="complete", expanded=False)

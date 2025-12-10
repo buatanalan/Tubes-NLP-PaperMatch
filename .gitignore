@@ -1,6 +1,7 @@
 .env
 /.venv/
 venv
+ret_env
 predictions
 models_baru
 models_baru_tf_idf
@@ -17,3 +18,11 @@ outputs
 processed_multixscience_data
 summarization
 model_local_final
+final_dataset_retrieval
+final_dataset_retrieval_cleaned
+final_dataset_retrieval_split
+models-retrieval
+models-retrieval-minilm-triplets
+models-retrieval-mpnet
+models-scidocs-transfer
+checkpoints
